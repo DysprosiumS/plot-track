@@ -1,0 +1,142 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+
+def get_scale_from_user():
+    """
+    Запрос масштаба у пользователя с проверкой ввода
+    """
+    while True:
+        try:
+            scale = float(input("Введите масштаб (мм/пиксель): "))
+            if scale <= 0:
+                print("Масштаб должен быть положительным числом!")
+                continue
+            return scale
+        except ValueError:
+            print("Пожалуйста, введите корректное число!")
+
+
+def plot_trajectory_from_excel(file_x, file_y, scale_mm_per_pixel=None, title="Траектория движения"):
+    """
+    Построение траектории движения по координатам из двух Excel файлов.
+
+    Параметры:
+    file_x (str): путь к файлу с координатами X (первый столбец, в пикселях)
+    file_y (str): путь к файлу с координатами Y (первый столбец, в пикселях)
+    scale_mm_per_pixel (float): масштаб (мм на пиксель). Если None - запросить у пользователя
+    title (str): заголовок графика
+    """
+
+    # Загрузка данных из файлов
+    df_x = pd.read_excel(file_x, header=None)
+    df_y = pd.read_excel(file_y, header=None)
+
+    # Извлечение первого столбца (в пикселях)
+    x_pixels = df_x.iloc[:, 0].values
+    y_pixels = df_y.iloc[:, 0].values
+
+    # Проверка на одинаковое количество точек
+    if len(x_pixels) != len(y_pixels):
+        print(f"Предупреждение: разное количество точек!")
+        print(f"Файл X: {len(x_pixels)} точек")
+        print(f"Файл Y: {len(y_pixels)} точек")
+        min_len = min(len(x_pixels), len(y_pixels))
+        x_pixels = x_pixels[:min_len]
+        y_pixels = y_pixels[:min_len]
+
+    # Запрос масштаба у пользователя, если не указан
+    if scale_mm_per_pixel is None:
+        print("\n" + "=" * 50)
+        print("ВВЕДИТЕ МАСШТАБ КАЛИБРОВКИ")
+        print("=" * 50)
+        scale_mm_per_pixel = get_scale_from_user()
+
+    # Перевод пикселей в миллиметры
+    x_mm = x_pixels * scale_mm_per_pixel
+    y_mm = y_pixels * scale_mm_per_pixel
+
+    # Создание графика
+    plt.figure(figsize=(10, 8))
+
+    # Построение траектории
+    plt.plot(x_mm, y_mm, 'b-', linewidth=2, marker='o',
+             markersize=4, markerfacecolor='red', markeredgecolor='red')
+
+    # Отметка старта и финиша
+    plt.scatter(x_mm[0], y_mm[0], color='green', s=150,
+                 zorder=5)
+    plt.scatter(x_mm[-1], y_mm[-1], color='red', s=150,
+                 zorder=5)
+
+    plt.xlabel('X (мм)', fontsize=12)
+    plt.ylabel('Y (мм)', fontsize=12)
+    plt.title(f'{title}\n(Масштаб: {scale_mm_per_pixel} мм/пиксель)', fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.axis('equal')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Вывод статистики
+    print("\n" + "=" * 50)
+    print("СТАТИСТИКА ДВИЖЕНИЯ")
+    print("=" * 50)
+    print(f"Масштаб: {scale_mm_per_pixel} мм/пиксель")
+    print(f"Количество точек: {len(x_mm)}")
+    print(f"\nВ пикселях:")
+    print(f"  Начальная точка: ({x_pixels[0]:.2f}, {y_pixels[0]:.2f}) px")
+    print(f"  Конечная точка: ({x_pixels[-1]:.2f}, {y_pixels[-1]:.2f}) px")
+    print(f"\nВ миллиметрах:")
+    print(f"  Начальная точка: ({x_mm[0]:.2f}, {y_mm[0]:.2f}) мм")
+    print(f"  Конечная точка: ({x_mm[-1]:.2f}, {y_mm[-1]:.2f}) мм")
+
+    # Вычисление пройденного пути
+    distances_px = np.sqrt(np.diff(x_pixels) ** 2 + np.diff(y_pixels) ** 2)
+    total_distance_px = np.sum(distances_px)
+    total_distance_mm = total_distance_px * scale_mm_per_pixel
+
+    print(f"\nПройденный путь:")
+    print(f"  {total_distance_px:.2f} пикселей = {total_distance_mm:.2f} мм")
+
+    # Прямое расстояние между началом и концом
+    straight_distance_px = np.sqrt((x_pixels[-1] - x_pixels[0]) ** 2 +
+                                   (y_pixels[-1] - y_pixels[0]) ** 2)
+    straight_distance_mm = straight_distance_px * scale_mm_per_pixel
+
+    print(f"\nРасстояние по прямой:")
+    print(f"  {straight_distance_px:.2f} пикселей = {straight_distance_mm:.2f} мм")
+
+    # Экстремумы
+    print(f"\nЭкстремумы (в мм):")
+    print(f"  X: мин={np.min(x_mm):.2f} мм, макс={np.max(x_mm):.2f} мм")
+    print(f"  Y: мин={np.min(y_mm):.2f} мм, макс={np.max(y_mm):.2f} мм")
+
+    return x_mm, y_mm, x_pixels, y_pixels
+
+
+# Пример использования
+if __name__ == "__main__":
+    # Пути к файлам (замените на свои)
+    file_x = "C:/Users/Senos/OneDrive/Рабочий стол/самоорганизация в капле/Трекинг общей капли/Rez/X1000.xlsx"
+    file_y = "C:/Users/Senos/OneDrive/Рабочий стол/самоорганизация в капле/Трекинг общей капли/Rez/Y1000.xlsx"
+
+    # Вариант 1: Указать масштаб в коде
+    scale = 0.0005952  # 0.1 мм на пиксель
+
+    # Вариант 2: Запросить масштаб у пользователя (раскомментировать)
+    # scale = None
+
+    if Path(file_x).exists() and Path(file_y).exists():
+        x_mm, y_mm, x_px, y_px = plot_trajectory_from_excel(
+            file_x,
+            file_y,
+            scale_mm_per_pixel=scale,
+            title="Капля микроэмульсии"
+        )
+    else:
+        print(f"Файл {file_x} или {file_y} не найден!")
+        print("Пожалуйста, проверьте пути к файлам.")
