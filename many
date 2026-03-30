@@ -1,0 +1,271 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+
+def plot_multiple_trajectories(file_x, file_y, scale_mm_per_pixel=1.0,
+                               start_row=0, end_row=None,
+                               title="Траектории движения"):
+
+
+    # Загрузка данных из файлов
+    df_x = pd.read_excel(file_x, header=None)
+    df_y = pd.read_excel(file_y, header=None)
+
+    # Проверка на одинаковое количество столбцов
+    if df_x.shape[1] != df_y.shape[1]:
+        print(f"Предупреждение: разное количество траекторий!")
+        print(f"Файл X: {df_x.shape[1]} траекторий")
+        print(f"Файл Y: {df_y.shape[1]} траекторий")
+        min_cols = min(df_x.shape[1], df_y.shape[1])
+        df_x = df_x.iloc[:, :min_cols]
+        df_y = df_y.iloc[:, :min_cols]
+
+    # Применение интервала строк
+    if end_row is None:
+        end_row = df_x.shape[0]
+
+    # Проверка границ интервала
+    start_row = max(0, start_row)
+    end_row = min(df_x.shape[0], end_row)
+
+    if start_row >= end_row:
+        print(f"Ошибка: start_row ({start_row}) >= end_row ({end_row})")
+        return None, None
+
+    # Вырезаем нужный интервал строк
+    df_x = df_x.iloc[start_row:end_row, :]
+    df_y = df_y.iloc[start_row:end_row, :]
+
+    print(f"Построение траекторий: строки с {start_row} по {end_row - 1}")
+    print(f"Количество траекторий: {df_x.shape[1]}")
+    print(f"Количество точек на траекторию: {df_x.shape[0]}")
+
+    # Создание графика
+    plt.figure(figsize=(10, 10))
+
+    # Цветовая палитра для разных траекторий
+    colors = plt.cm.tab10(np.linspace(0, 1, df_x.shape[1]))
+
+    # Построение каждой траектории
+    for i in range(df_x.shape[1]):
+        # Получаем координаты в пикселях
+        x_pixels = df_x.iloc[:, i].values
+        y_pixels = df_y.iloc[:, i].values
+
+        # Удаляем NaN значения, если есть
+        valid_mask = ~(np.isnan(x_pixels) | np.isnan(y_pixels))
+        x_pixels = x_pixels[valid_mask]
+        y_pixels = y_pixels[valid_mask]
+
+        if len(x_pixels) == 0:
+            continue
+
+        # Перевод в миллиметры
+        x_mm = x_pixels * scale_mm_per_pixel
+        y_mm = y_pixels * scale_mm_per_pixel
+
+        # Построение траектории
+        plt.plot(x_mm, y_mm, color=colors[i], linewidth=2,
+                 marker='o', markersize=3, alpha=0.8)
+
+        # Отметка старта и финиша для каждой траектории
+        plt.scatter(x_mm[0], y_mm[0], color='green', s=150,
+                 zorder=5)
+        plt.scatter(x_mm[-1], y_mm[-1], color='red', s=150,
+                 zorder=5)
+
+    # Настройка графика
+    plt.xlabel('X (мм)', fontsize=12)
+    plt.ylabel('Y (мм)', fontsize=12)
+    plt.title(f'{title}\n(Масштаб: {scale_mm_per_pixel} мм/пиксель, '
+              f'кадры: {start_row}-{end_row - 1})', fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.axis('equal')
+
+    plt.tight_layout()
+    plt.show()
+
+    return df_x, df_y
+
+
+def plot_multiple_trajectories_with_custom_style(file_x, file_y, scale_mm_per_pixel=1.0,
+                                                 start_row=0, end_row=None,
+                                                 show_markers=False, linewidth=2,
+                                                 markersize=4, alpha=0.8,
+                                                 title="Янус-частицы"):
+    """
+    Расширенная версия с дополнительными настройками стиля.
+
+    Параметры:
+    show_markers (bool): показывать маркеры точек
+    linewidth (float): толщина линии
+    markersize (float): размер маркеров
+    alpha (float): прозрачность (0-1)
+    """
+
+    # Загрузка данных
+    df_x = pd.read_excel(file_x, header=None)
+    df_y = pd.read_excel(file_y, header=None)
+
+    # Проверка количества столбцов
+    if df_x.shape[1] != df_y.shape[1]:
+        min_cols = min(df_x.shape[1], df_y.shape[1])
+        df_x = df_x.iloc[:, :min_cols]
+        df_y = df_y.iloc[:, :min_cols]
+
+    # Применение интервала
+    if end_row is None:
+        end_row = df_x.shape[0]
+
+    start_row = max(0, start_row)
+    end_row = min(df_x.shape[0], end_row)
+
+    if start_row >= end_row:
+        print(f"Ошибка: start_row ({start_row}) >= end_row ({end_row})")
+        return
+
+    df_x = df_x.iloc[start_row:end_row, :]
+    df_y = df_y.iloc[start_row:end_row, :]
+
+    print(f"Построение: строки {start_row}-{end_row - 1}, траекторий: {df_x.shape[1]}")
+
+    # Создание графика
+    plt.figure(figsize=(12, 10))
+
+    # Разные стили линий для разнообразия
+    line_styles = ['-', '--', '-.', ':']
+    colors = plt.cm.viridis(np.linspace(0, 1, df_x.shape[1]))
+
+    for i in range(df_x.shape[1]):
+        x_pixels = df_x.iloc[:, i].values
+        y_pixels = df_y.iloc[:, i].values
+
+        # Удаление NaN
+        valid_mask = ~(np.isnan(x_pixels) | np.isnan(y_pixels))
+        x_pixels = x_pixels[valid_mask]
+        y_pixels = y_pixels[valid_mask]
+
+        if len(x_pixels) < 2:
+            continue
+
+        x_mm = x_pixels * scale_mm_per_pixel
+        y_mm = y_pixels * scale_mm_per_pixel
+
+        line_style = line_styles[i % len(line_styles)]
+
+        if show_markers:
+            plt.plot(x_mm, y_mm, color=colors[i], linewidth=linewidth,
+                     linestyle=line_style, marker='o', markersize=markersize,
+                      alpha=alpha)
+        else:
+            plt.plot(x_mm, y_mm, color=colors[i], linewidth=linewidth,
+                     linestyle=line_style, alpha=alpha)
+
+        # Отметка начала и конца
+        plt.scatter(x_mm[0], y_mm[0], color='green', s=150,
+                 zorder=5)
+        plt.scatter(x_mm[-1], y_mm[-1], color='red', s=150,
+                 zorder=5)
+
+    plt.xlabel('X (мм)', fontsize=12)
+    plt.ylabel('Y (мм)', fontsize=12)
+    plt.title(title, fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.axis('equal')
+
+    plt.tight_layout()
+    plt.show()
+
+
+# Пример использования
+if __name__ == "__main__":
+    # Параметры
+    scale = 0.0005952  # мм/пиксель
+
+    # Настройка интервала точек
+    start = 0  # начальная строка
+    end = 3501  # конечная строка (None - до конца)
+
+    # Пути к файлам (пример)
+    file_x = "C:/Users/Senos/OneDrive/Рабочий стол/самоорганизация в капле/Rez/coordX.xlsx"  # Каждый столбец - X координаты траектории
+    file_y = "C:/Users/Senos/OneDrive/Рабочий стол/самоорганизация в капле/Rez/coordY.xlsx"  # Каждый столбец - Y координаты траектории
+
+    if Path(file_x).exists() and Path(file_y).exists():
+        # Основная версия
+        plot_multiple_trajectories(
+            file_x, file_y,
+            scale_mm_per_pixel=scale,
+            start_row=start,
+            end_row=end,
+            title="Янус-частицы"
+        )
+
+        # Расширенная версия с доп. настройками
+        # plot_multiple_trajectories_with_custom_style(
+        #     file_x, file_y,
+        #     scale_mm_per_pixel=scale,
+        #     start_row=start,
+        #     end_row=end,
+        #     show_markers=False,
+        #     linewidth=1.5,
+        #     alpha=0.7,
+        #     title="Траектории (расширенный стиль)"
+        # )
+    else:
+        # Демонстрация на примере случайных данных
+        print("Файлы не найдены. Демонстрация на примере случайных данных:")
+
+        # Создание тестовых данных для 3 траекторий
+        np.random.seed(42)
+        n_points = 300
+        n_trajectories = 3
+
+        # Создание разных траекторий
+        test_x = np.zeros((n_points, n_trajectories))
+        test_y = np.zeros((n_points, n_trajectories))
+
+        t = np.linspace(0, 4 * np.pi, n_points)
+
+        # Траектория 1: синусоида
+        test_x[:, 0] = t * 50 + 100
+        test_y[:, 0] = np.sin(t) * 100 + 200
+
+        # Траектория 2: окружность
+        test_x[:, 1] = 150 * np.cos(t) + 400
+        test_y[:, 1] = 150 * np.sin(t) + 300
+
+        # Траектория 3: спираль
+        r = t * 20
+        test_x[:, 2] = r * np.cos(t * 2) + 700
+        test_y[:, 2] = r * np.sin(t * 2) + 400
+
+        # Добавление шума
+        test_x += np.random.normal(0, 5, test_x.shape)
+        test_y += np.random.normal(0, 5, test_y.shape)
+
+        # Сохранение в Excel
+        pd.DataFrame(test_x).to_excel("demo_x.xlsx", index=False, header=False)
+        pd.DataFrame(test_y).to_excel("demo_y.xlsx", index=False, header=False)
+
+        # Построение графиков с разными интервалами
+        print("\n1. Полная траектория (все точки):")
+        plot_multiple_trajectories("demo_x.xlsx", "demo_y.xlsx",
+                                   scale_mm_per_pixel=0.1,
+                                   start_row=0, end_row=None,
+                                   title="Полные траектории")
+
+        print("\n2. Часть траектории (точки 50-200):")
+        plot_multiple_trajectories("demo_x.xlsx", "demo_y.xlsx",
+                                   scale_mm_per_pixel=0.1,
+                                   start_row=50, end_row=200,
+                                   title="Фрагмент траекторий (50-200)")
+
+        # Очистка
+        import os
+
+        os.remove("demo_x.xlsx")
+        os.remove("demo_y.xlsx")
